@@ -25,6 +25,13 @@ from .room_io import (
     _ParticipantTranscriptionOutput,
 )
 from .speech_handle import SpeechHandle
+from .tool_ledger import (
+    TOOL_LEDGER_KEY,
+    LedgerEntry,
+    ToolCallLedger,
+    attach_ledger,
+    get_ledger,
+)
 from .transcription import TranscriptSynchronizer, text_transforms
 
 __all__ = [
@@ -35,6 +42,11 @@ __all__ = [
     "ModelSettings",
     "AgentTask",
     "SpeechHandle",
+    "ToolCallLedger",
+    "LedgerEntry",
+    "TOOL_LEDGER_KEY",
+    "attach_ledger",
+    "get_ledger",
     "RunContext",
     "UserInputTranscribedEvent",
     "AgentEvent",

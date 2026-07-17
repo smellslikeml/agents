@@ -26,6 +26,7 @@ from ..llm.utils import prepare_function_arguments
 from ..log import logger
 from ..types import NOT_GIVEN, NotGivenOr
 from .events import RunContext
+from .tool_ledger import get_ledger
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -260,6 +261,9 @@ class _ToolExecutor:
         on_duplicate: DuplicateMode = info.on_duplicate
         allow_cancellation: bool = ToolFlag.CANCELLABLE in info.flags
 
+        # structured-state ledger (arxiv:2606.20529); None when unattached
+        ledger = get_ledger(run_ctx.session)
+
         confirm_duplicate: bool | None = None
         if on_duplicate == "confirm":
             confirm_duplicate = bool(raw_arguments.pop(CONFIRM_DUPLICATE_PARAM, False))
@@ -276,6 +280,9 @@ class _ToolExecutor:
 
         if call_id in self._running_tasks:
             raise ValueError(f"Task already running for call_id: {call_id}")
+
+        if ledger is not None:
+            ledger.record_call(call_id, fnc_name, raw_arguments)
 
         # the future is how RunContext.update() talks back to dispatch
         first_update_fut = asyncio.Future[Any]()
@@ -294,11 +301,16 @@ class _ToolExecutor:
                     output = await tool(*fnc_args, **fnc_kwargs)
             except asyncio.CancelledError:
                 logger.debug("tool cancelled", extra={"call_id": call_id, "function": fnc_name})
+                if ledger is not None:
+                    ledger.record_result(call_id, asyncio.CancelledError())
                 if not first_update_fut.done():
                     first_update_fut.set_result(None)
                 return
             except Exception as e:
                 output = e
+
+            if ledger is not None:
+                ledger.record_result(call_id, output)
 
             if not first_update_fut.done():
                 # tool returned without ctx.update() — surface the result to dispatch
