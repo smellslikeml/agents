@@ -76,7 +76,15 @@ class ToolSearchToolset(Toolset):
         query_description: NotGivenOr[str] = NOT_GIVEN,
     ) -> None:
         super().__init__(id=id, tools=tools)
-        self._strategy = search_strategy or BM25SearchStrategy()
+        if search_strategy:
+            self._strategy: SearchStrategy = search_strategy
+        else:
+            # Default to intention-aware graph retrieval (BM25 ranking diffused
+            # over a tool-collaboration graph) so a matched tool can surface its
+            # collaborators upstream of an irrelevant/hallucinated tool call.
+            from .tool_graph_search import ToolGraphSearchStrategy
+
+            self._strategy = ToolGraphSearchStrategy()
         self._max_results = max_results
         self._loaded_tools: list[Tool | Toolset] = []
 
