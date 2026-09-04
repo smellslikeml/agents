@@ -42,6 +42,7 @@ from . import _provider_format
 
 if TYPE_CHECKING:
     from ..voice.events import RunContext
+    from .entity_binding import EntityResolver
 
 
 class Tool(ABC):
@@ -164,6 +165,11 @@ class FunctionToolInfo:
     description: str | None
     flags: ToolFlag
     on_duplicate: DuplicateMode = "allow"
+    entities: EntityResolver | None = None
+    """Optional entity-binding precondition run before the tool executes (see
+    :mod:`~livekit.agents.llm.entity_binding`). When it raises
+    :class:`~livekit.agents.llm.entity_binding.EntityBindingError`, the
+    clarification is fed back to the LLM as a tool error."""
 
 
 class RawFunctionDescription(TypedDict):
@@ -287,6 +293,7 @@ def function_tool(
     description: str | None = None,
     flags: ToolFlag = ToolFlag.NONE,
     on_duplicate: DuplicateMode = "allow",
+    entities: EntityResolver | None = None,
 ) -> FunctionTool[_P, _R]: ...
 
 
@@ -298,6 +305,7 @@ def function_tool(
     description: str | None = None,
     flags: ToolFlag = ToolFlag.NONE,
     on_duplicate: DuplicateMode = "allow",
+    entities: EntityResolver | None = None,
 ) -> Callable[[Callable[_P, _R]], FunctionTool[_P, _R]]: ...
 
 
@@ -309,6 +317,7 @@ def function_tool(
     raw_schema: RawFunctionDescription | dict[str, Any] | None = None,
     flags: ToolFlag = ToolFlag.NONE,
     on_duplicate: DuplicateMode = "allow",
+    entities: EntityResolver | None = None,
 ) -> (
     FunctionTool[_P, _R]
     | RawFunctionTool[_P, _R]
@@ -351,6 +360,7 @@ def function_tool(
             description=description or docstring.description,
             flags=flags,
             on_duplicate=on_duplicate,
+            entities=entities,
         )
         return FunctionTool(wrapped, info)
 

@@ -32,6 +32,7 @@ from ..log import logger
 from ..utils import images
 from . import _strict
 from .chat_context import ChatContext, ImageContent
+from .entity_binding import BoundEntity, run_tool_entity_resolver
 from .tool_context import FunctionTool, RawFunctionTool, ToolError
 
 if TYPE_CHECKING:
@@ -655,6 +656,10 @@ class FunctionCallResult:
     fnc_call_updates: list[tuple[FunctionCall, FunctionCallOutput]] = field(default_factory=list)
     """Synthesized pairs from any ``ctx.update()`` calls during this standalone
     execution. Empty unless the tool actually called ``ctx.update()``."""
+    entity_bindings: list[BoundEntity] = field(default_factory=list)
+    """Provenance from the tool's entity-binding precondition (see
+    :func:`~livekit.agents.llm.entity_binding.run_tool_entity_resolver`). Empty
+    when the tool declared no resolver or binding was skipped."""
 
 
 def make_function_call_output(
@@ -774,11 +779,25 @@ async def execute_function_call(
             call_ctx=call_ctx,
             fnc_call=fnc_call,
         )
+        # Entity-binding precondition: resolve entity-typed args before acting.
+        # Raises EntityBindingError (a ToolError) on ambiguity/low-confidence,
+        # which the except branch below routes back to the LLM as an error so it
+        # can self-correct — the same feedback loop used for unknown functions.
+        # Resolvers work on named arguments, so bind the prepared positional
+        # args back to their parameter names first.
+        try:
+            _bound = inspect.signature(function_tool).bind(*fnc_args, **fnc_kwargs)
+            _bound.apply_defaults()
+            named_args: dict[str, Any] = dict(_bound.arguments)
+        except TypeError:
+            named_args = fnc_kwargs
+        entity_bindings = run_tool_entity_resolver(function_tool, named_args, call_ctx)
         result = function_tool(*fnc_args, **fnc_kwargs)
         if asyncio.iscoroutine(result):
             result = await result
 
         out = make_function_call_output(fnc_call=fnc_call, output=result, exception=None)
+        out.entity_bindings = entity_bindings
 
     except Exception as e:
         if not isinstance(e, ToolError):

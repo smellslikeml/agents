@@ -13,6 +13,14 @@ from .chat_context import (
     ImageContent,
     MetricsReport,
 )
+from .entity_binding import (
+    BoundEntity,
+    EntityBindingError,
+    EntityCandidate,
+    EntityResolver,
+    resolve_entity,
+    run_tool_entity_resolver,
+)
 from .fallback_adapter import AvailabilityChangedEvent, FallbackAdapter
 from .llm import (
     LLM,
@@ -93,6 +101,12 @@ __all__ = [
     "ToolError",
     "ToolFlag",
     "StopResponse",
+    "EntityBindingError",
+    "EntityCandidate",
+    "BoundEntity",
+    "EntityResolver",
+    "resolve_entity",
+    "run_tool_entity_resolver",
     "utils",
     "remote_chat_context",
     "FunctionToolCall",
